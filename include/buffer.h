@@ -28,6 +28,12 @@ typedef struct circular_buffer_t
 //Malloc cbuffer and buffer
 circular_buffer_t* circular_buffer_init(size_t size);
 
+//Get as param an external buffer
+circular_buffer_t* circular_buffer_init_with_buffer(message_t* buffer, size_t size);
+
+//Get as param en external buffer AND circular buffer
+void circular_buffer_init_with_cbuffer(circular_buffer_t* cbuffer, message_t* buffer, size_t size);
+
 //Read message from cbuffer and advance tail
 int circular_buffer_get(circular_buffer_t* cbuffer, message_t* data);
 

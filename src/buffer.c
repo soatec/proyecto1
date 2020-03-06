@@ -29,6 +29,23 @@ circular_buffer_t* circular_buffer_init(size_t size)
     return circular_buffer;
 }
 
+circular_buffer_t* circular_buffer_init_with_buffer(message_t* buffer, size_t size)
+{
+    circular_buffer_t* circular_buffer = (circular_buffer_t *) malloc(sizeof(circular_buffer_t));
+    circular_buffer->buffer = buffer;
+    circular_buffer->length = size;
+    circular_buffer_reset(circular_buffer);
+
+    return circular_buffer;
+}
+
+void circular_buffer_init_with_cbuffer(circular_buffer_t* cbuffer, message_t* buffer, size_t size)
+{
+    cbuffer->buffer = buffer;
+    cbuffer->length = size;
+    circular_buffer_reset(cbuffer);
+}
+
 void circular_buffer_reset(circular_buffer_t* cbuffer)
 {
     cbuffer->head = 0;
