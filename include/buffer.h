@@ -4,7 +4,7 @@
 #ifndef PROYECTO1_BUFFER_H
 #define PROYECTO1_BUFFER_H
 
-//Buffer dumym code
+//Buffer dummy code
 //Will delete until other dummy refs have been deleted
 int get_buffer_int();
 
@@ -25,20 +25,28 @@ typedef struct circular_buffer_t
     int length;
 } circular_buffer_t;
 
+//Malloc cbuffer and buffer
 circular_buffer_t* circular_buffer_init(size_t size);
 
-int circular_buffer_put(circular_buffer_t* cbuffer, message_t message);
-
-void circular_buffer_reset(circular_buffer_t* cbuffer);
-
+//Read message from cbuffer and advance tail
 int circular_buffer_get(circular_buffer_t* cbuffer, message_t* data);
 
+//Add message to cbuffer and advance head
+int circular_buffer_put(circular_buffer_t* cbuffer, message_t message);
+
+//Set cbuffer to initial state
+void circular_buffer_reset(circular_buffer_t* cbuffer);
+
+//Free cbuffer malloc
+void circular_buffer_free(circular_buffer_t* cbuffer);
+
+//Is cbuffer empty
 bool circular_buffer_empty(circular_buffer_t* cbuffer);
 
+//Is cbuffer full
 bool circular_buffer_full(circular_buffer_t* cbuffer);
 
+//Length of cbuffer
 size_t circular_buffer_capacity(circular_buffer_t* cbuffer);
-
-size_t circular_buffer_size(circular_buffer_t* cbuffer);
 
 #endif //PROYECTO1_BUFFER_H
