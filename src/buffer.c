@@ -18,7 +18,7 @@ int get_buffer_int()
 circular_buffer_t* circular_buffer_init(size_t size)
 {
     circular_buffer_t* circular_buffer = (circular_buffer_t *) malloc(sizeof(circular_buffer_t));
-    circular_buffer->buffer = (message_t *) malloc (sizeof(message_t)*(size*2));
+    circular_buffer->buffer = (message_t *) malloc (sizeof(message_t)*(size));
     if (!circular_buffer->buffer)
     {
         printf("Buffer init failed\n");
@@ -78,7 +78,7 @@ int circular_buffer_put(circular_buffer_t* cbuffer, message_t message)
     int result = -1;
     if(!circular_buffer_full(cbuffer))
     {
-        cbuffer->buffer[cbuffer->head * sizeof(message_t)] = message;
+        cbuffer->buffer[cbuffer->head] = message;
 
         result = cbuffer->head;
 
@@ -94,7 +94,7 @@ int circular_buffer_get(circular_buffer_t* cbuffer, message_t* data)
     int result = -1;
     if(!circular_buffer_empty(cbuffer))
     {
-        *data = cbuffer->buffer[cbuffer->tail * sizeof(message_t)];
+        *data = cbuffer->buffer[cbuffer->tail];
 
         result = cbuffer->tail;
 
