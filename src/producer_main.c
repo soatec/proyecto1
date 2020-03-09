@@ -2,11 +2,47 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include "../include/producer.h"
+#include "producer.h"
 
-int main() {
-    
-  print_msg();
+int main(int argc, char *argv[]) {
+    int opt;
+    int mean_s = -1;
+    char * buffer_name = NULL;
+    producer_t producer;
 
-  return(0);
+    // Get buffer name and exponential mean from console arguments
+    while ((opt = getopt(argc, argv, "b:m:")) != -1) {
+        switch (opt) {
+            case 'b':
+                buffer_name = optarg;
+                break;
+
+            case 'm':
+                mean_s = atoi(optarg);
+                break;
+
+            default:
+                fprintf(stderr, "Usage: %s -b buffer_name -m exponential_mean_s\n",
+                        argv[0]);
+                exit(EXIT_FAILURE);
+        }
+    }
+
+    if (buffer_name == NULL) {
+        fprintf(stderr, "-b buffer_name is a mandatory argument\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if (mean_s == -1) {
+        fprintf(stderr, "-m exponential_mean_s is a mandatory argument\n");
+        exit(EXIT_FAILURE);
+    } else if (mean_s < 0) {
+        fprintf(stderr, "-m exponential_mean_s must be positive\n");
+        exit(EXIT_FAILURE);
+    }
+
+    new_producer(&producer, buffer_name, mean_s);
+    run_producer(&producer);
+
+    exit(EXIT_SUCCESS);
 }

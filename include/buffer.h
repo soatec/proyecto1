@@ -9,56 +9,123 @@
 int get_buffer_int();
 
 //Structs
+
+/**
+ * Message structure
+ */
 typedef struct message_t
 {
-  int process_id;   //PID of process that wrote the message.
-  time_t time_of_creation;
-  int consumer_key;  //Random key between 0 and 4 to end consumers with matching key
+    /** ID of process that wrote the message **/
+    int process_id;
+
+    /** Time when the message was created**/
+    time_t time_of_creation;
+
+    /** Random key between 0 and 4 to end consumers with matching key**/
+    int consumer_key;
 } message_t;
 
+/**
+ * Circular buffer structure
+ */
 typedef struct circular_buffer_t
 {
+    /** Messages array **/
     message_t* buffer;
-    int head;
-    int tail;
-    bool full;
-    int length;
 
-    //int capacity;
-    //int next_in; //keep track of where to produce the next message_t (N-1)
-    //int next_out;//keep track of where to consume the next message_t (N-3)
+    /** Position reference to write **/
+    int head;
+
+    /** Position reference to read**/
+    int tail;
+
+    /** Indicate if the buffer is full **/
+    bool full;
+
+    /** Buffer size **/
+    int length;
 } circular_buffer_t;
 
-
-
-//Malloc cbuffer and buffer
+/**
+ * Malloc cbuffer and buffer
+ *
+ * @param size
+ * @return
+ */
 circular_buffer_t* circular_buffer_init(size_t size);
 
-//Get as param an external buffer
+/**
+ * Get as param an external buffer
+ *
+ * @param buffer
+ * @param size
+ * @return
+ */
 circular_buffer_t* circular_buffer_init_with_buffer(message_t* buffer, size_t size);
 
-//Get as param en external buffer AND circular buffer
+/**
+ * Get as param en external buffer AND circular buffer
+ *
+ * @param cbuffer
+ * @param buffer
+ * @param size
+ */
 void circular_buffer_init_with_cbuffer(circular_buffer_t* cbuffer, message_t* buffer, size_t size);
 
-//Read message from cbuffer and advance tail
+/**
+ * Read message from cbuffer and advance tail
+ *
+ * @param cbuffer
+ * @param data
+ * @return
+ */
 int circular_buffer_get(circular_buffer_t* cbuffer, message_t* data);
 
-//Add message to cbuffer and advance head
+/**
+ * Add message to cbuffer and advance head
+ *
+ * @param cbuffer
+ * @param message
+ * @return
+ */
 int circular_buffer_put(circular_buffer_t* cbuffer, message_t message);
 
-//Set cbuffer to initial state
+/**
+ * Set cbuffer to initial state
+ *
+ * @param cbuffer
+ */
 void circular_buffer_reset(circular_buffer_t* cbuffer);
 
-//Free cbuffer malloc
+/**
+ * Free cbuffer malloc
+ *
+ * @param cbuffer
+ */
 void circular_buffer_free(circular_buffer_t* cbuffer);
 
-//Is cbuffer empty
+/**
+ * Is cbuffer empty
+ *
+ * @param cbuffer
+ * @return
+ */
 bool circular_buffer_empty(circular_buffer_t* cbuffer);
 
-//Is cbuffer full
+/**
+ * Is cbuffer full
+ *
+ * @param cbuffer
+ * @return
+ */
 bool circular_buffer_full(circular_buffer_t* cbuffer);
 
-//Length of cbuffer
+/**
+ * Length of cbuffer
+ *
+ * @param cbuffer
+ * @return
+ */
 size_t circular_buffer_capacity(circular_buffer_t* cbuffer);
 
 #endif //PROYECTO1_BUFFER_H
