@@ -156,7 +156,7 @@ int create_mmap(char* name, int shm_len){
     shm_fd = shm_open(name, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (shm_fd == -1){
       perror("shm_open failed");
-      return false;
+      return 0;
     }
 
 
@@ -167,7 +167,7 @@ int create_mmap(char* name, int shm_len){
     ptr = mmap(0, shm_len, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if ((ptr == (void *) -1)||(ptr == MAP_FAILED)) {
         perror("mmap failed");
-        return false;
+        return 0;
     }
 
 
