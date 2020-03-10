@@ -43,15 +43,15 @@ If the buffer is empty, the begin index equals to the end index(for simplicity, 
 *           (for simplicity, set them to 0).
 * NOTES :
 */
-circular_buffer_t * init_buffer(int n_buffer){
-  circular_buffer_t *buffer = malloc(sizeof *buffer);
-    if (!buffer) return 0;
-  buffer->capacity = n_buffer;
-  buffer->next_in = 0;//keep track of where to produce the next message_t (N-1)
-  buffer->next_out = 0;//keep track of where to consume the next message_t (N-3)
-  buffer->buffer = malloc(n_buffer * sizeof *(buffer->buffer));
-  return buffer;
-}
+//circular_buffer_t * init_buffer(int n_buffer){
+  //circular_buffer_t *buffer = malloc(sizeof *buffer);
+    //if (!buffer) return 0;
+  //buffer->capacity = n_buffer;
+  //buffer->next_in = 0;//keep track of where to produce the next message_t (N-1)
+  //buffer->next_out = 0;//keep track of where to consume the next message_t (N-3)
+  //buffer->buffer = malloc(n_buffer * sizeof *(buffer->buffer));
+  //return buffer;
+//}
 
 /*******************************************************************
 * NAME : init_access_to_buffer
@@ -64,10 +64,10 @@ circular_buffer_t * init_buffer(int n_buffer){
 * PROCESS : empty count the empty buffer in the buffer and it's initialized with the total value.
 * NOTES :
 */
-access_to_buffer_struct * init_access_to_buffer_struct(int n_buffer){
-    access_to_buffer_struct *struct_t;
+buffer_lock * init_buffer_lock(int n_buffer){
+    buffer_lock *struct_t;
     int id;
-    struct_t = (access_to_buffer_struct *) malloc(sizeof(access_to_buffer_struct));
+    struct_t = (buffer_lock *) malloc(sizeof(buffer_lock));
     id = sem_init(&(struct_t->mutex), SHARED_PROCESS, 1);
     id = sem_init(&(struct_t->data), SHARED_PROCESS, 0);// count the number of data message_ts in the buffer
     id = sem_init(&(struct_t->empty), SHARED_PROCESS, n_buffer);//count the empty slot in the buffer
@@ -86,10 +86,10 @@ access_to_buffer_struct * init_access_to_buffer_struct(int n_buffer){
 * PROCESS :
 * NOTES :
 */
-readers_and_writers_struct * init_readers_and_writers_struct (){
+read_write_lock * init_read_write_lock (){
     //sync_readers_and_writers struct_t p1 = {1,1};//wrt, mutex
-    readers_and_writers_struct *struct_t;
-    struct_t = (readers_and_writers_struct *) malloc(sizeof(readers_and_writers_struct));
+    read_write_lock *struct_t;
+    struct_t = (read_write_lock *) malloc(sizeof(read_write_lock));
     sem_init(&(struct_t->wrt), SHARED_PROCESS, 1);
     sem_init(&(struct_t->mutex), SHARED_PROCESS, 1);
     struct_t->readcount = 0;
@@ -111,14 +111,14 @@ readers_and_writers_struct * init_readers_and_writers_struct (){
 *             capacity - size of the ring buffer
 * NOTES :
 */
-circular_buffer_t*  add_data_index_buffer(message_t  data_message_t, circular_buffer_t *buffer){
+//circular_buffer_t*  add_data_index_buffer(message_t  data_message_t, circular_buffer_t *buffer){
   //change this line for add new information into the buffer
   //buffer->buffer[buffer->next_in]=data_message_t;
-  buffer->next_in = (buffer->next_in + 1)% buffer->capacity;
-  if (buffer->next_out == buffer->next_in);
-    buffer->next_out = (buffer->next_out + 1) % buffer->capacity;
-  return buffer;
-}
+  //buffer->next_in = (buffer->next_in + 1)% buffer->capacity;
+  //if (buffer->next_out == buffer->next_in);
+    //buffer->next_out = (buffer->next_out + 1) % buffer->capacity;
+  //return buffer;
+//}
 
 
 /*******************************************************************
@@ -135,14 +135,14 @@ circular_buffer_t*  add_data_index_buffer(message_t  data_message_t, circular_bu
 *             capacity - size of the ring buffer
 * NOTES :
 */
-circular_buffer_t*  remove_data_index_buffer(message_t  data_message_t, circular_buffer_t *buffer){
+//circular_buffer_t*  remove_data_index_buffer(message_t  data_message_t, circular_buffer_t *buffer){
   //change this line for add new information into the buffer
   //buffer->buffer[buffer->next_in]=data_message_t;
-  buffer->next_out = (buffer->next_out + 1)% buffer->capacity;
-  if (buffer->next_out == buffer->next_in);
-    buffer->next_in = (buffer->next_in + 1) % buffer->capacity;
-  return buffer;
-}
+  //buffer->next_out = (buffer->next_out + 1)% buffer->capacity;
+  //if (buffer->next_out == buffer->next_in);
+    //buffer->next_in = (buffer->next_in + 1) % buffer->capacity;
+  //return buffer;
+//}
 
 /*******************************************************************
 * NAME : create_shared_mmap
@@ -152,10 +152,10 @@ circular_buffer_t*  remove_data_index_buffer(message_t  data_message_t, circular
 *
 * INPUTS :
 * OUTPUTS :
-* PROCESS : 
+* PROCESS :
 * NOTES :
 */
-int create_shared_mmap(char* name, int shm_len){
+int create_shared_mmap(char* name, int _capacity){
     int shm_fd;
     shm_fd = shm_open(name, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (shm_fd == -1){
@@ -163,9 +163,12 @@ int create_shared_mmap(char* name, int shm_len){
       return 0;
     }
 
-
-    if (ftruncate(shm_fd, shm_len) == -1)
-      perror ("ftruncate");
+    int shm_len = sizeof(buffer_lock) + sizeof(read_write_lock) + sizeof(circular_buffer_t) +  _capacity * sizeof(message_t);
+    if (ftruncate(shm_fd, shm_len) < 0) {
+        perror("ftruncate failed");
+        //shm_unlink(path);
+        //return false;
+    }
 
     void* ptr;
     ptr = mmap(0, shm_len, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
@@ -186,8 +189,8 @@ int create_shared_mmap(char* name, int shm_len){
 }
 
 circular_buffer_t *buffer;
-access_to_buffer_struct *access_to_circular_buffer_t;
-readers_and_writers_struct *readers_and_writers_t;
+buffer_lock *access_to_circular_buffer_t;
+read_write_lock *readers_and_writers_t;
 
 pthread_t consumer_tid[CONSUMERS], producer_tid[PRODUCERS];
 
@@ -197,11 +200,12 @@ int print_msg()
     //printf("loaded >>> %s %i \n", msg, get_buffer_int());
     printf("\033[1;33m");
     printf("inicia el buffer\n");
-    buffer  = init_buffer(N);
+    //buffer  = init_buffer(CAPACITY);
 
     printf("init semaphores\n");
-    access_to_circular_buffer_t = init_access_to_buffer_struct(N);
-    readers_and_writers_t =init_readers_and_writers_struct ();
+    access_to_circular_buffer_t = init_buffer_lock(CAPACITY);
+    readers_and_writers_t =init_read_write_lock ();
+    create_shared_mmap(BUFFER_NAME,CAPACITY);
     printf("\033[0m");
     return 0;
 }

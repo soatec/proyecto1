@@ -2,7 +2,8 @@
 #define PROYECTO1_CREATOR_H
 
 
-#define N 5
+#define CAPACITY 5
+#define BUFFER_NAME "SO_BUFFER"
 #define PRODUCERS 2
 #define CONSUMERS 4
 #define SHARED_PROCESS 1
@@ -15,7 +16,7 @@ este es el slot de struct usada como buffer (muts deleate later)
 
 
 /*******************************************************************
-* NAME : access_to_buffer_struct
+* NAME : buffer_lock
 * DESCRIPTION :
 *           this struct implements the emaphores used
 *           to synchonize access to the buffer
@@ -30,11 +31,11 @@ typedef struct{
   /*atomically counts the empty buffer in the buffer (N)*/
   sem_t empty; //N;
 
-} access_to_buffer_struct;
+} buffer_lock;
 
 
 /*******************************************************************
-* NAME : readers_and_writers_struct
+* NAME : read_write_lock
 * DESCRIPTION :
 *         this struct implements the semaphores used
 *           to synchonize readers and writers
@@ -47,7 +48,7 @@ typedef struct{
   /*mutual exclusion uptades of readcount*/
   sem_t mutex;
   int readcount;
-}readers_and_writers_struct;
+}read_write_lock;
 
 
 //Creator dummy stuff
