@@ -7,8 +7,9 @@
 #include <semaphore.h> /* sem_... */
 #include <sys/mman.h>
 #include <fcntl.h>
-#include "../include/creator.h"
 #include "../include/buffer.h"
+#include "../include/creator.h"
+
 /*
 A ring(or circular) buffer is a fixed-size buffer,
 which can overwrite new data to the beginning of the buffer when the buffer is full.
@@ -35,20 +36,20 @@ If the buffer is empty, the begin index equals to the end index(for simplicity, 
 *     init capacity size of the buffer
 *     init next_in
 *     init next_out
-* INPUTS : n_slots of stols o capacidad el buffer
-* OUTPUTS : buffer_head struct
+* INPUTS : n_buffer of stols o capacidad el buffer
+* OUTPUTS : circular_buffer_t struct
 * PROCESS : If the buffer is empty, the begin index (update next_in)
 *                         equals to the end index (update next_out)
 *           (for simplicity, set them to 0).
 * NOTES :
 */
-buffer_head * init_buffer(int n_slots){
-  buffer_head *buffer = malloc(sizeof *buffer);
+circular_buffer_t * init_buffer(int n_buffer){
+  circular_buffer_t *buffer = malloc(sizeof *buffer);
     if (!buffer) return 0;
-  buffer->capacity = n_slots;
-  buffer->next_in = 0;//keep track of where to produce the next item (N-1)
-  buffer->next_out = 0;//keep track of where to consume the next item (N-3)
-  buffer->slots = malloc(n_slots * sizeof *(buffer->slots));
+  buffer->capacity = n_buffer;
+  buffer->next_in = 0;//keep track of where to produce the next message_t (N-1)
+  buffer->next_out = 0;//keep track of where to consume the next message_t (N-3)
+  buffer->buffer = malloc(n_buffer * sizeof *(buffer->buffer));
   return buffer;
 }
 
@@ -56,11 +57,11 @@ buffer_head * init_buffer(int n_slots){
 * NAME : init_access_to_buffer
 * DESCRIPTION :
 *     init mutex for next_in and next_out
-*     init numeber of items in the buffer
+*     init numeber of message_ts in the buffer
 *     init numbers of stols
 * INPUTS : n_buffer or buffer size or number of stols
 * OUTPUTS : sync_access_to_buffer struct
-* PROCESS : empty count the empty slots in the buffer and it's initialized with the total value.
+* PROCESS : empty count the empty buffer in the buffer and it's initialized with the total value.
 * NOTES :
 */
 access_to_buffer_struct * init_access_to_buffer_struct(int n_buffer){
@@ -68,7 +69,7 @@ access_to_buffer_struct * init_access_to_buffer_struct(int n_buffer){
     int id;
     struct_t = (access_to_buffer_struct *) malloc(sizeof(access_to_buffer_struct));
     id = sem_init(&(struct_t->mutex), SHARED_PROCESS, 1);
-    id = sem_init(&(struct_t->data), SHARED_PROCESS, 0);// count the number of data items in the buffer
+    id = sem_init(&(struct_t->data), SHARED_PROCESS, 0);// count the number of data message_ts in the buffer
     id = sem_init(&(struct_t->empty), SHARED_PROCESS, n_buffer);//count the empty slot in the buffer
     //struct_t = { .mutex= 1, .data = 0, .empy = n_buffer};//mutex,data,empty
     return struct_t;
@@ -110,9 +111,9 @@ readers_and_writers_struct * init_readers_and_writers_struct (){
 *             capacity - size of the ring buffer
 * NOTES :
 */
-buffer_head*  add_data_index_buffer(item  data_item, buffer_head *buffer){
+circular_buffer_t*  add_data_index_buffer(message_t  data_message_t, circular_buffer_t *buffer){
   //change this line for add new information into the buffer
-  //buffer->slots[buffer->next_in]=data_item;
+  //buffer->buffer[buffer->next_in]=data_message_t;
   buffer->next_in = (buffer->next_in + 1)% buffer->capacity;
   if (buffer->next_out == buffer->next_in);
     buffer->next_out = (buffer->next_out + 1) % buffer->capacity;
@@ -134,24 +135,27 @@ buffer_head*  add_data_index_buffer(item  data_item, buffer_head *buffer){
 *             capacity - size of the ring buffer
 * NOTES :
 */
-buffer_head*  remove_data_index_buffer(item  data_item, buffer_head *buffer){
+circular_buffer_t*  remove_data_index_buffer(message_t  data_message_t, circular_buffer_t *buffer){
   //change this line for add new information into the buffer
-  //buffer->slots[buffer->next_in]=data_item;
+  //buffer->buffer[buffer->next_in]=data_message_t;
   buffer->next_out = (buffer->next_out + 1)% buffer->capacity;
   if (buffer->next_out == buffer->next_in);
     buffer->next_in = (buffer->next_in + 1) % buffer->capacity;
   return buffer;
 }
 
-
-buffer_head *buffer;
-access_to_buffer_struct *access_to_buffer_head;
-readers_and_writers_struct *readers_and_writers_t;
-
-pthread_t consumer_tid[CONSUMERS], producer_tid[PRODUCERS];
-
-
-int create_mmap(char* name, int shm_len){
+/*******************************************************************
+* NAME : create_shared_mmap
+* DESCRIPTION :
+*
+* into the buffer.
+*
+* INPUTS :
+* OUTPUTS :
+* PROCESS : 
+* NOTES :
+*/
+int create_shared_mmap(char* name, int shm_len){
     int shm_fd;
     shm_fd = shm_open(name, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (shm_fd == -1){
@@ -181,6 +185,12 @@ int create_mmap(char* name, int shm_len){
     return 0;
 }
 
+circular_buffer_t *buffer;
+access_to_buffer_struct *access_to_circular_buffer_t;
+readers_and_writers_struct *readers_and_writers_t;
+
+pthread_t consumer_tid[CONSUMERS], producer_tid[PRODUCERS];
+
 int print_msg()
 {
     strcpy(msg, "Creator");
@@ -190,11 +200,14 @@ int print_msg()
     buffer  = init_buffer(N);
 
     printf("init semaphores\n");
-    access_to_buffer_head = init_access_to_buffer_struct(N);
+    access_to_circular_buffer_t = init_access_to_buffer_struct(N);
     readers_and_writers_t =init_readers_and_writers_struct ();
     printf("\033[0m");
     return 0;
 }
+
+
+
 
 int main() {
 
