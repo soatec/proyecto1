@@ -30,6 +30,7 @@ typedef struct circular_buffer_t
 } circular_buffer_t;
 
 
+
 //Malloc cbuffer and buffer
 circular_buffer_t* circular_buffer_init(size_t size);
 
