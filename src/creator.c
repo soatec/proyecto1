@@ -66,11 +66,11 @@ If the buffer is empty, the begin index equals to the end index(for simplicity, 
 */
 buffer_lock * init_buffer_lock(int n_buffer){
     buffer_lock *struct_t;
-    int id;
+
     struct_t = (buffer_lock *) malloc(sizeof(buffer_lock));
-    id = sem_init(&(struct_t->mutex), SHARED_PROCESS, 1);
-    id = sem_init(&(struct_t->data), SHARED_PROCESS, 0);// count the number of data message_ts in the buffer
-    id = sem_init(&(struct_t->empty), SHARED_PROCESS, n_buffer);//count the empty slot in the buffer
+    sem_init(&(struct_t->mutex), SHARED_PROCESS, 1);
+    sem_init(&(struct_t->data), SHARED_PROCESS, 0);// count the number of data message_ts in the buffer
+    sem_init(&(struct_t->empty), SHARED_PROCESS, n_buffer);//count the empty slot in the buffer
     //struct_t = { .mutex= 1, .data = 0, .empy = n_buffer};//mutex,data,empty
     return struct_t;
 }
@@ -208,16 +208,4 @@ int print_msg()
     create_shared_mmap(BUFFER_NAME,CAPACITY);
     printf("\033[0m");
     return 0;
-}
-
-
-
-
-int main() {
-
-  print_msg();
-
-
-
-  return(0);
 }
