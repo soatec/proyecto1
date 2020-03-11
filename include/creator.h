@@ -1,6 +1,6 @@
 #ifndef PROYECTO1_CREATOR_H
 #define PROYECTO1_CREATOR_H
-
+#include <semaphore.h> /* sem_... */
 #define CAPACITY 5
 #define BUFFER_NAME "SO_BUFFER"
 #define PRODUCERS 2
