@@ -1,6 +1,5 @@
 #ifndef PROYECTO1_CREATOR_H
 #define PROYECTO1_CREATOR_H
-#include <semaphore.h> /* sem_... */
 
 #define CAPACITY 5
 #define BUFFER_NAME "SO_BUFFER"
@@ -16,14 +15,14 @@ este es el slot de struct usada como buffer (muts deleate later)
 
 
 /*******************************************************************
-* NAME : buffer_lock
+* NAME : sem_lock_buffer
 * DESCRIPTION :
 *           this struct implements the emaphores used
 *           to synchonize access to the buffer
 *
 * NOTES :
 */
-typedef struct{
+struct sem_lock_buffer{
   /*mutual exclusive: updates next_in next_out*/
   sem_t mutex;
   /*atomically counts the number of data message_ts in the buffer */
@@ -31,24 +30,24 @@ typedef struct{
   /*atomically counts the empty buffer in the buffer (N)*/
   sem_t empty; //N;
 
-} buffer_lock;
+};
 
 
 /*******************************************************************
-* NAME : read_write_lock
+* NAME : sem_look_read_write
 * DESCRIPTION :
 *         this struct implements the semaphores used
 *           to synchonize readers and writers
 *
 * NOTES :
 */
-typedef struct{
+struct sem_look_read_write{
   /*mutual exclusion amount writers*/
   sem_t wrt;
   /*mutual exclusion uptades of readcount*/
   sem_t mutex;
   int readcount;
-}read_write_lock;
+};
 
 
 //Creator dummy stuff
