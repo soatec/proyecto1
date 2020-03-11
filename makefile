@@ -4,7 +4,7 @@ BUILD_DIR   := ./build
 
 CC        := gcc
 CFLAGS    := -Wall
-LDFLAGS   := -lm
+LDFLAGS   := -lm -lpthread -lrt
 INC_FLAGS := -I$(INCLUDE_DIR)
 
 .PHONY: all
@@ -32,4 +32,3 @@ $(BUILD_DIR):
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
-

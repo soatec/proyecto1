@@ -23,7 +23,13 @@ typedef struct circular_buffer_t
     int tail;
     bool full;
     int length;
+
+    //int capacity;
+    //int next_in; //keep track of where to produce the next message_t (N-1)
+    //int next_out;//keep track of where to consume the next message_t (N-3)
 } circular_buffer_t;
+
+
 
 //Malloc cbuffer and buffer
 circular_buffer_t* circular_buffer_init(size_t size);

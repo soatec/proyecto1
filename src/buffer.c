@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include "../include/buffer.h"
+#include "../include/creator.h"
 
 //Buffer dummy code
 //Will delete until other dummy refs have been deleted

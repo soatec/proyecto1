@@ -5,8 +5,8 @@
 #include "../include/creator.h"
 
 int main() {
-    
-  print_msg();
+
+  //print_msg();
 
   return(0);
 }
