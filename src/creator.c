@@ -202,6 +202,7 @@ int creator_of_values()
     struct sem_look_read_write sem_lock_rw_t;
     init_sem_look_read_write (&sem_lock_rw_t);
     create_shared_mmap(BUFFER_NAME,CAPACITY);
+
     
     printf("\033[0m");
     return 0;
