@@ -16,7 +16,8 @@ int new_consumer(consumer_t *consumer, char *buffer_name, int mean_s)
     if (!consumer->sys_state) return EXIT_FAILURE;
 
     consumer->cbuffer = shm_cbuffer_get(buffer_name,
-                                        consumer->sys_state->buffer_size);
+                                        consumer->sys_state->buffer_size,
+                                        consumer->sys_state->cbuffer_address);
     if (!consumer->cbuffer) return EXIT_FAILURE;
 
     return EXIT_SUCCESS;
@@ -30,27 +31,7 @@ int run_consumer(consumer_t *consumer)
     unsigned int wait_time_s;
     bool system_alive;
 
-    // Lock keep alive mutex
-    ret = sem_wait(&consumer->sys_state->mut_keep_alive);
-    if (ret) {
-        fprintf(stdout,
-                "Creator PID: %u failed to lock keep alive: %s\n",
-                consumer->process_id,
-                consumer->buffer_name);
-        return ret;
-    }
-
     system_alive = consumer->sys_state->keep_alive;
-
-    // Unlock keep alive mutex
-    ret = sem_post(&consumer->sys_state->mut_keep_alive);
-    if (ret) {
-        fprintf(stdout,
-                "Creator PID: %u failed to unlock keep alive: %s\n",
-                consumer->process_id,
-                consumer->buffer_name);
-        return ret;
-    }
 
     while(system_alive) {
         // Consumer waits for a random exponential time according the given mean
@@ -121,26 +102,8 @@ int run_consumer(consumer_t *consumer)
             break;
         }
 
-        // Lock keep alive mutex
-        ret = sem_wait(&consumer->sys_state->mut_keep_alive);
-        if (ret) {
-            fprintf(stdout,
-                    "Consumer PID: %u failed to lock keep alive: %s\n",
-                    consumer->process_id,
-                    consumer->buffer_name);
-        }
-
         system_alive = consumer->sys_state->keep_alive;
 
-        // Unlock keep alive mutex
-        ret = sem_post(&consumer->sys_state->mut_keep_alive);
-        if (ret) {
-            fprintf(stdout,
-                    "Consumer PID: %u failed to unlock keep alive: %s\n",
-                    consumer->process_id,
-                    consumer->buffer_name);
-            return ret;
-        }
     }
     printf("-------------------- FINALIZATION --------------------\n");
     printf("The consumer with process id %d has finalized\n", consumer->process_id);
