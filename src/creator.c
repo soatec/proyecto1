@@ -2,208 +2,172 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/ipc.h>
-#include <pthread.h>   /* pthread_... */
-#include <semaphore.h> /* sem_... */
-#include <sys/mman.h>
-#include <fcntl.h>
-#include "../include/buffer.h"
-#include "../include/creator.h"
-
-/*
-A ring(or circular) buffer is a fixed-size buffer,
-which can overwrite new data to the beginning of the buffer when the buffer is full.
-The ring buffer can be simply implemented with an array and two indices
-  - one index points the beginning of the buffer,
-    and the other index denotes the end of the buffer.
-
-If the buffer is empty, the begin index equals to the end index(for simplicity, set them to 0).
-    When new data comes, push it to the entry of the end index,
-    and increase the end index.
-
-    At this moment, if the begin index equals to the end index,
-      then increase the begin index, too.
-
-    All of the index operations must modulo the size of the array, in case of buffer overflow.
-
-    reference : https://www.bo-yang.net/2016/07/27/shared-memory-ring-buffer
-*/
+#include <semaphore.h>
+#include "buffer.h"
+#include "utils.h"
 
 
-/*******************************************************************
-* NAME : init_buffer
-* DESCRIPTION :
-*     init capacity size of the buffer
-*     init next_in
-*     init next_out
-* INPUTS : n_buffer of stols o capacidad el buffer
-* OUTPUTS : circular_buffer_t struct
-* PROCESS : If the buffer is empty, the begin index (update next_in)
-*                         equals to the end index (update next_out)
-*           (for simplicity, set them to 0).
-* NOTES :
-*/
-/*
-circular_buffer_t * init_buffer(int n_buffer){
-  circular_buffer_t *buffer = malloc(sizeof *buffer);
-    if (!buffer) return 0;
-  buffer->capacity = n_buffer;
-  buffer->next_in = 0;//keep track of where to produce the next message_t (N-1)
-  buffer->next_out = 0;//keep track of where to consume the next message_t (N-3)
-  buffer->buffer = malloc(n_buffer * sizeof *(buffer->buffer));
-  return buffer;
-}
-*/
-/*******************************************************************
-* NAME : init_access_to_buffer
-* DESCRIPTION :
-*     init mutex for next_in and next_out
-*     init numeber of message_ts in the buffer
-*     init numbers of stols
-* INPUTS : n_buffer or buffer size or number of stols
-* OUTPUTS : sync_access_to_buffer struct
-* PROCESS : empty count the empty buffer in the buffer and it's initialized with the total value.
-* NOTES :
-*/
-void init_sem_lock_buffer(int n_buffer,struct sem_lock_buffer *struct_t){
-    sem_init(&(struct_t->mutex), SHARED_PROCESS, 1);
-    sem_init(&(struct_t->data), SHARED_PROCESS, 0);// count the number of data message_ts in the buffer
-    sem_init(&(struct_t->empty), SHARED_PROCESS, n_buffer);//count the empty slot in the buffer
-    //struct_t = { .mutex= 1, .data = 0, .empy = n_buffer};//mutex,data,empty
-}
+int shared_system_init(char* buffer_name, unsigned int buffer_size) {
+    int ret;
+    system_sh_state_t *system_state = NULL;
+    circular_buffer_t* cbuffer;
+    unsigned int wait_time_s = 1;
+    unsigned int waited_time_s;
+    bool system_alive;
+    unsigned int producer_count;
+    unsigned int consumer_count;
 
-
-/*******************************************************************
-* NAME : init_access_to_buffer
-* DESCRIPTION :
-*     init wrt mutual exclusion amount writers
-*     init mutual exclusion uptades of readcount
-* INPUTS :
-* OUTPUTS : sync_readers_and_writers struct
-* PROCESS :
-* NOTES :
-*/
-void init_sem_look_read_write (struct sem_look_read_write *struct_t){
-    //sync_readers_and_writers struct_t p1 = {1,1};//wrt, mutex
-    sem_init(&(struct_t->wrt), SHARED_PROCESS, 1);
-    sem_init(&(struct_t->mutex), SHARED_PROCESS, 1);
-    struct_t->readcount = 0;
-}
-
-
-/*******************************************************************
-* NAME : add_data_index_buffer
-* DESCRIPTION :
-*    The code for adding new data into the buffer, is like to write information
-* into the buffer.
-*   update values of next_in next_out in order to manage the buffer
-* INPUTS :
-* OUTPUTS :
-* PROCESS : A - ring buffer array
-*             next_in - start index of the ring buffer
-*             next_out - end index of the ring buffer
-*             capacity - size of the ring buffer
-* NOTES :
-*/
-/*
-circular_buffer_t*  add_data_index_buffer(message_t  data_message_t, circular_buffer_t *buffer){
-  change this line for add new information into the buffer
-  buffer->buffer[buffer->next_in]=data_message_t;
-  buffer->next_in = (buffer->next_in + 1)% buffer->capacity;
-  if (buffer->next_out == buffer->next_in);
-    buffer->next_out = (buffer->next_out + 1) % buffer->capacity;
-  return buffer;
-}
-*/
-
-/*******************************************************************
-* NAME : remove_data_index_buffer
-* DESCRIPTION :
-*    The code for adding new data into the buffer, is like to write information
-* into the buffer.
-*   update values of next_in next_out in order to manage the buffer
-* INPUTS :
-* OUTPUTS :
-* PROCESS : A - ring buffer array
-*             next_in - start index of the ring buffer
-*             next_out - end index of the ring buffer
-*             capacity - size of the ring buffer
-* NOTES :
-*/
-/*
-circular_buffer_t*  remove_data_index_buffer(message_t  data_message_t, circular_buffer_t *buffer){
-  change this line for add new information into the buffer
-  buffer->buffer[buffer->next_in]=data_message_t;
-  buffer->next_out = (buffer->next_out + 1)% buffer->capacity;
-  if (buffer->next_out == buffer->next_in);
-    buffer->next_in = (buffer->next_in + 1) % buffer->capacity;
-  return buffer;
-}
-*/
-/*******************************************************************
-* NAME : create_shared_mmap
-* DESCRIPTION :
-*
-* into the buffer.
-*
-* INPUTS :
-* OUTPUTS :
-* PROCESS :
-* NOTES :
-*/
-int create_shared_mmap(char* name, int _capacity){
-    int shm_fd;
-    shm_fd = shm_open(name, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-    if (shm_fd == -1){
-      perror("shm_open failed");
-      return 0;
+    // Set system shared state structure to shared memory
+    system_state = shm_system_state_set(buffer_name);
+    if (!system_state){
+        ret = EXIT_FAILURE;
+        return ret;
     }
 
-    int shm_len;
-    // = malloc(sizeof(struct sem_lock_buffer) + sizeof(struct sem_look_read_write) + sizeof(struct circular_buffer_t) +  _capacity * sizeof(struct message_t));
-    if (ftruncate(shm_fd, shm_len) < 0) {
-        perror("ftruncate failed");
-        //shm_unlink(path);
-        //return false;
+    system_state->buffer_size = buffer_size;
+    system_state->keep_alive = true;
+    system_state->producer_count = 0;
+    system_state->consumer_count = 0;
+    system_alive = system_state->keep_alive;
+    producer_count = system_state->producer_count;
+    consumer_count = system_state->consumer_count;
+
+    // Initialize cbuffer empty space semaphore to buffer size
+    // Semaphore, Processes != 0, Value
+    ret = sem_init(&system_state->sem_cbuffer_empty, 1, buffer_size);
+    if (ret) {
+        fprintf(stderr, "Failed to init cbuffer empty semaphore\n");
+        return ret;
     }
 
-    void* ptr;
-    ptr = mmap(0, shm_len, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    if ((ptr == (void *) -1)||(ptr == MAP_FAILED)) {
-        perror("mmap failed");
-        return 0;
+    // Initialize cbuffer message available semaphore to zero
+    ret = sem_init(&system_state->sem_cbuffer_message, 1, 0);
+    if (ret) {
+        fprintf(stderr, "Failed to init cbuffer message semaphore\n");
+        return ret;
     }
 
+    // Initialize buffer size mutex (semaphore value to one)
+    ret = sem_init(&system_state->mut_buffer_size, 1, 1);
+    if (ret) {
+        fprintf(stderr, "Failed to init buffer size mutex\n");
+        return ret;
+    }
 
-    printf("%s", (char*)ptr);
+    // Initialize keep alive mutex (semaphore value to one)
+    ret = sem_init(&system_state->mut_keep_alive, 1, 1);
+    if (ret) {
+        fprintf(stderr, "Failed to init keep alive mutex\n");
+        return ret;
+    }
 
-      /* Unmap shared memory */
-      munmap(ptr, shm_len);
-      /* Destroy shared memory */
-      shm_unlink(name);
+    // Initialize cbuffer producers counter mutex (semaphore value to one)
+    ret = sem_init(&system_state->mut_producer_count, 1, 1);
+    if (ret) {
+        fprintf(stderr, "Failed to init producers counter mutex\n");
+        return ret;
+    }
 
-    return 0;
-}
+    // Initialize consumers counter mutex (semaphore value to one)
+    ret = sem_init(&system_state->mut_consumer_count, 1, 1);
+    if (ret) {
+        fprintf(stderr, "Failed to init consumer counter mutex\n");
+        return ret;
+    }
 
-int creator_of_values()
-{
-    strcpy(msg, "Creator");
-    //printf("loaded >>> %s %i \n", msg, get_buffer_int());
-    printf("\033[1;33m");
-    printf("init the buffer\n");
-    struct circular_buffer_t buffer_t;
-    //buffer  = init_buffer(CAPACITY);
+    // Initialize cbuffer write mutex (semaphore value to one)
+    ret = sem_init(&system_state->mut_cbuffer_write, 1, 1);
+    if (ret) {
+        fprintf(stderr, "Failed to init cbuffer write mutex\n");
+        return ret;
+    }
 
-    printf("init semaphores to manage buffer \n");
-    struct sem_lock_buffer sem_lock_buffer_t;
-    init_sem_lock_buffer(CAPACITY,&sem_lock_buffer_t);
+    // Initialize cbuffer read mutex (semaphore value to one)
+    ret = sem_init(&system_state->mut_cbuffer_read, 1, 1);
+    if (ret) {
+        fprintf(stderr, "Failed to init cbuffer read mutex\n");
+        return ret;
+    }
 
-    printf("init semaphores to manage productor consumitor \n");
-    struct sem_look_read_write sem_lock_rw_t;
-    init_sem_look_read_write (&sem_lock_rw_t);
-    create_shared_mmap(BUFFER_NAME,CAPACITY);
+    // Set sbuffer to shared memory
+    cbuffer = shm_cbuffer_set(buffer_name, buffer_size);
+    if (!cbuffer) {
+        ret = EXIT_FAILURE;
+        return ret;
+    }
 
-    
-    printf("\033[0m");
-    return 0;
+    while(system_alive || producer_count != 0 || consumer_count != 0) {
+        // Creator waits for a random exponential time according the given mean
+        fprintf(stdout,
+                "\nCreator with PID %u has been created %u seconds ago - buffer name: %s\n",
+                getpid(),
+                ++waited_time_s,
+                buffer_name);
+        sleep(wait_time_s);
+
+        // Lock keep alive mutex
+        ret = sem_wait(&system_state->mut_keep_alive);
+        if (ret) {
+            fprintf(stdout,
+                    "\nCreator PID: %u failed to lock keep alive: %s\n",
+                    getpid(),
+                    buffer_name);
+        }
+
+        system_alive = system_state->keep_alive;
+
+        // Unlock keep alive mutex
+        ret = sem_post(&system_state->mut_keep_alive);
+        if (ret) {
+            fprintf(stdout,
+                    "\nCreator PID: %u failed to unlock keep alive: %s\n",
+                    getpid(),
+                    buffer_name);
+            return ret;
+        }
+
+        // Lock producer count mutex
+        ret = sem_wait(&system_state->mut_producer_count);
+        if (ret) {
+            fprintf(stdout,
+                    "\nCreator PID: %u failed to lock producer count: %s\n",
+                    getpid(),
+                    buffer_name);
+        }
+
+        producer_count = system_state->producer_count;
+
+        // Unlock producer count mutex
+        ret = sem_post(&system_state->mut_producer_count);
+        if (ret) {
+            fprintf(stdout,
+                    "\nCreator PID: %u failed to unlock producer count: %s\n",
+                    getpid(),
+                    buffer_name);
+            return ret;
+        }
+
+        // Lock consumer count mutex
+        ret = sem_wait(&system_state->mut_consumer_count);
+        if (ret) {
+            fprintf(stdout,
+                    "\nCreator PID: %u failed to lock consumer count: %s\n",
+                    getpid(),
+                    buffer_name);
+        }
+
+        consumer_count = system_state->consumer_count;
+
+        // Unlock consumer count mutex
+        ret = sem_post(&system_state->mut_consumer_count);
+        if (ret) {
+            fprintf(stdout,
+                    "\nCreator PID: %u failed to unlock consumer count: %s\n",
+                    getpid(),
+                    buffer_name);
+            return ret;
+        }
+    }
+
+    return ret;
 }

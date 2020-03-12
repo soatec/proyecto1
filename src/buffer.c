@@ -1,10 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
-#include "../include/buffer.h"
-#include "../include/creator.h"
+#include "buffer.h"
 
 //Buffer dummy code
 //Will delete until other dummy refs have been deleted
@@ -13,8 +11,6 @@ int get_buffer_int()
 {
     return buffer_int;
 }
-
-
 
 circular_buffer_t* circular_buffer_init(size_t size)
 {
@@ -80,9 +76,7 @@ int circular_buffer_put(circular_buffer_t* cbuffer, message_t message)
     if(!circular_buffer_full(cbuffer))
     {
         cbuffer->buffer[cbuffer->head] = message;
-
         result = cbuffer->head;
-
         cbuffer->head = (cbuffer->head + 1) % cbuffer->length;
         cbuffer->full = (cbuffer->head == cbuffer->tail);
 
@@ -96,9 +90,7 @@ int circular_buffer_get(circular_buffer_t* cbuffer, message_t* data)
     if(!circular_buffer_empty(cbuffer))
     {
         *data = cbuffer->buffer[cbuffer->tail];
-
         result = cbuffer->tail;
-
         cbuffer->full = false;
         cbuffer->tail = (cbuffer->tail + 1) % cbuffer->length;
     }
