@@ -6,6 +6,7 @@
 
 int main(int argc, char *argv[]) {
     int opt;
+    int status;
     int mean_s = -1;
     char * buffer_name = NULL;
     producer_t producer;
@@ -41,8 +42,17 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    new_producer(&producer, buffer_name, mean_s);
-    run_producer(&producer);
+    status = new_producer(&producer, buffer_name, mean_s);
+    if (status){
+        fprintf(stderr, "Error while creating producer\n");
+        return status;
+    }
+
+    status = run_producer(&producer);
+    if (status){
+        fprintf(stderr, "Error while running producer\n");
+        return status;
+    }
 
     exit(EXIT_SUCCESS);
 }

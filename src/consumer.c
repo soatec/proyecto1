@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include "consumer.h"
 #include "buffer.h"
 #include "utils.h"
@@ -11,8 +12,8 @@ int new_consumer(consumer_t *consumer, char *buffer_name, int mean_s)
     consumer->exp_mean_wait_s = mean_s;
     consumer->message_count = 0;
     consumer->waited_time_s = 0;
-    consumer->blocked_time_by_empty_sem_s = 0;
-    consumer->blocked_time_by_wr_mut_s = 0;
+    consumer->blocked_time_by_message_sem_s = (struct timeval){0};
+    consumer->blocked_time_by_rd_mut_s = (struct timeval){0};
     consumer->sys_state = shm_system_state_get(buffer_name);
     if (!consumer->sys_state) return EXIT_FAILURE;
     consumer->cbuffer = shm_cbuffer_get(buffer_name,
@@ -28,6 +29,7 @@ int run_consumer(consumer_t *consumer)
 
     int ret;
     message_t message;
+    struct timeval start_time, end_time, time_interval;
     unsigned int wait_time_s, cbuffer_index;
     bool system_alive = consumer->sys_state->keep_alive;
     unsigned int producer_count, consumer_count;
@@ -70,11 +72,46 @@ int run_consumer(consumer_t *consumer)
         consumer->waited_time_s += wait_time_s;
         sleep(wait_time_s);
 
+        // Get current time
+        ret = gettimeofday(&start_time, NULL);
+        if (ret) {
+            fprintf(stderr,
+                    "\nConsumer PID: %u for buffer: %s failed to get current time\n",
+                    consumer->process_id,
+                    consumer->buffer_name);
+            return ret;
+        }
+
         // Wait message semaphore
         ret = sem_wait(&consumer->sys_state->sem_cbuffer_message);
         if (ret) {
             fprintf(stdout,
                     "\nConsumer PID: %u failed to wait message space: %s\n",
+                    consumer->process_id,
+                    consumer->buffer_name);
+            return ret;
+        }
+
+        // Get current time
+        ret = gettimeofday(&end_time, NULL);
+        if (ret) {
+            fprintf(stderr,
+                    "\nConsumer PID: %u for buffer: %s failed to get current time\n",
+                    consumer->process_id,
+                    consumer->buffer_name);
+            return ret;
+        }
+
+        // Compute blocked time by cbuffer message semaphore
+        time_interval = get_time_interval(start_time, end_time);
+        consumer->blocked_time_by_message_sem_s.tv_sec += time_interval.tv_sec;
+        consumer->blocked_time_by_message_sem_s.tv_usec += time_interval.tv_usec;
+
+        // Get current time
+        ret = gettimeofday(&start_time, NULL);
+        if (ret) {
+            fprintf(stderr,
+                    "\nConsumer PID: %u for buffer: %s failed to get current time\n",
                     consumer->process_id,
                     consumer->buffer_name);
             return ret;
@@ -88,6 +125,21 @@ int run_consumer(consumer_t *consumer)
                     consumer->process_id,
                     consumer->buffer_name);
         }
+
+        // Get current time
+        ret = gettimeofday(&end_time, NULL);
+        if (ret) {
+            fprintf(stderr,
+                    "\nConsumer PID: %u for buffer: %s failed to get current time\n",
+                    consumer->process_id,
+                    consumer->buffer_name);
+            return ret;
+        }
+
+        // Compute blocked time by cbuffer write mutex
+        time_interval = get_time_interval(start_time, end_time);
+        consumer->blocked_time_by_rd_mut_s.tv_sec += time_interval.tv_sec;
+        consumer->blocked_time_by_rd_mut_s.tv_usec += time_interval.tv_usec;
 
         // Read message into shared buffer
         cbuffer_index = circular_buffer_get(consumer->cbuffer, &message);
@@ -170,13 +222,14 @@ int run_consumer(consumer_t *consumer)
             " Consumed messages counter: %u\n", consumer->message_count);
     fprintf(stdout,
             " Accumulated waiting time: %u seconds\n", consumer->waited_time_s);
-
+    consumer->blocked_time_by_message_sem_s = format_accumulated_time(consumer->blocked_time_by_message_sem_s);
     fprintf(stdout,
-            " Accumulated blocked time by cbuffer empty space semaphore: %d seconds\n",
-            consumer->blocked_time_by_empty_sem_s);
+            " Accumulated blocked time by cbuffer message semaphore: %lu seconds and %lu milliseconds\n",
+            consumer->blocked_time_by_message_sem_s.tv_sec, consumer->blocked_time_by_message_sem_s.tv_usec);
+    consumer->blocked_time_by_rd_mut_s = format_accumulated_time(consumer->blocked_time_by_rd_mut_s);
     fprintf(stdout,
-            " Accumulated blocked time by cbuffer write mutex: %d seconds\n",
-            consumer->blocked_time_by_wr_mut_s);
+            " Accumulated blocked time by cbuffer read mutex: %lu seconds and %lu milliseconds\n",
+            consumer->blocked_time_by_rd_mut_s.tv_sec, consumer->blocked_time_by_rd_mut_s.tv_usec);
     fprintf(stdout, "}\n");
     return ret;
 }

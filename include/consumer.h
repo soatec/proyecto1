@@ -29,11 +29,11 @@ typedef struct consumer_t
     /** Waited time in seconds **/
     unsigned int waited_time_s;
 
-    /** Blocked time by cbuffer empty space semaphore in seconds */
-    unsigned int blocked_time_by_empty_sem_s;
+    /** Blocked time by cbuffer message semaphore in seconds */
+    struct timeval blocked_time_by_message_sem_s;
 
-    /** Blocked time by cbuffer write mutex in seconds */
-    unsigned int blocked_time_by_wr_mut_s;
+    /** Blocked time by cbuffer read mutex in seconds */
+    struct timeval blocked_time_by_rd_mut_s;
 
     /** System shared state **/
     system_sh_state_t *sys_state;
