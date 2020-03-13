@@ -8,6 +8,7 @@
 int new_consumer(consumer_t *consumer, char *buffer_name, int mean_s)
 {
     consumer->process_id = getpid();
+    consumer->process_id_mod_5 = consumer->process_id % 5;
     consumer->buffer_name = buffer_name;
     consumer->exp_mean_wait_s = mean_s;
     consumer->message_count = 0;
