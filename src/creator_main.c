@@ -9,7 +9,7 @@ int main(int argc, char *argv[]) {
     int buffer_size = -1;
     char * buffer_name = NULL;
 
-    // Get buffer name and exponential mean from console arguments
+    // Get buffer name and buffer size from console arguments
     while ((opt = getopt(argc, argv, "b:s:")) != -1) {
         switch (opt) {
             case 'b':
@@ -33,10 +33,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (buffer_size == -1) {
-        fprintf(stderr, "-m buffer_size is a mandatory argument\n");
+        fprintf(stderr, "-s buffer_size is a mandatory argument\n");
         exit(EXIT_FAILURE);
     } else if (buffer_size < 0) {
-        fprintf(stderr, "-m buffer_size must be positive\n");
+        fprintf(stderr, "-s buffer_size must be positive\n");
         exit(EXIT_FAILURE);
     }
 

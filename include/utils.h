@@ -12,14 +12,8 @@ typedef struct system_sh_state {
     /** Flag to keep producers and consumers running */
     unsigned int buffer_size;
 
-    /** Mutex to protect buffer size */
-    sem_t mut_buffer_size;
-
     /** Flag to keep producers and consumers running */
     bool keep_alive;
-
-    /** Mutex to protect keep alive */
-    sem_t mut_keep_alive;
 
     /** Producers counter */
     unsigned int producer_count;
@@ -44,6 +38,9 @@ typedef struct system_sh_state {
 
     /** Mutex to protect message read from cbuffer */
     sem_t mut_cbuffer_read;
+
+    /** cbuffer address */
+    circular_buffer_t* cbuffer_address;
 } system_sh_state_t;
 
 /**
@@ -76,7 +73,8 @@ circular_buffer_t *shm_cbuffer_set(char *buffer_name, unsigned int size);
  * Get system shared state
  * Caller is responsive for unmapping the pointer and closing the file
  */
-circular_buffer_t *shm_cbuffer_get(char *buffer_name, unsigned int size);
+circular_buffer_t *shm_cbuffer_get(char *buffer_name, unsigned int size,
+                                   circular_buffer_t *cbuffer_address);
 
 /**
  * Unmap system state shared memory pointer and close file

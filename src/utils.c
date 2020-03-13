@@ -10,11 +10,18 @@
 
 // Preprocessor defines
 
+// System shared state filename sufix
 #define SYS_ST_SUFIX "_sys_st"
+
+// Circular buffer filename sufix
 #define CBUFFER_SUFIX "_cbuffer"
 
 // Private functions
 
+/*
+ * Get filename: Appends name sufix to buffer name
+ * The caller is responsible of freeing the returned pointer
+ */
 static char* shm_filename_get(char* buffer_name, char* name_suffix) {
     char* filename = NULL;
 
@@ -31,6 +38,7 @@ static char* shm_filename_get(char* buffer_name, char* name_suffix) {
 }
 
 // Public functions
+
 unsigned int exponential_random_get(unsigned int mean)
 {
     // Get uniform random number in ]0,1[
@@ -64,8 +72,6 @@ system_sh_state_t *shm_system_state_set(char *buffer_name)
         return system_state;
     }
 
-    fprintf(stderr, "filename %s\n", filename);
-
     // Open shared memory file: name, oflags, mode
     fd = shm_open(filename, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (fd < 0) {
@@ -73,6 +79,7 @@ system_sh_state_t *shm_system_state_set(char *buffer_name)
         return system_state;
     }
 
+    // Size shared memory file
     ret = ftruncate(fd, sizeof(system_sh_state_t));
     if (ret) {
         fprintf(stderr, "Failed to truncate sys state shm file\n");
@@ -80,7 +87,6 @@ system_sh_state_t *shm_system_state_set(char *buffer_name)
         if (ret) fprintf(stderr, "Failed to unlink sys state shm file\n");
         return system_state;
     }
-
 
     // Create sys state mmap: address, size, protection, flags, fd, offset
     system_state = mmap(NULL, sizeof(system_sh_state_t),
@@ -117,14 +123,6 @@ system_sh_state_t *shm_system_state_get(char *buffer_name)
         return system_state;
     }
 
-    ret = ftruncate(fd, sizeof(system_sh_state_t));
-    if (ret) {
-        fprintf(stderr, "Failed to truncate sys state shm file\n");
-        ret = shm_unlink(filename);
-        if (ret) fprintf(stderr, "Failed to unlink sys state shm file\n");
-        return system_state;
-    }
-
     // Create sys state mmap: address, size, protection, flags, fd, offset
     system_state = mmap(NULL, sizeof(system_sh_state_t),
                         PROT_READ | PROT_WRITE,
@@ -144,61 +142,6 @@ system_sh_state_t *shm_system_state_get(char *buffer_name)
 
 circular_buffer_t *shm_cbuffer_set(char *buffer_name, unsigned int size)
 {
-  int ret, fd;
-  char* filename;
-  char* mmap_ptr;
-  circular_buffer_t *cbuffer = NULL;
-  message_t *messages;
-  unsigned int file_size;
-
-  filename = shm_filename_get(buffer_name, CBUFFER_SUFIX);
-  if (!filename) {
-      return cbuffer;
-  }
-
-  file_size = sizeof(circular_buffer_t) + size * sizeof(message_t);
-
-  fprintf(stderr, "filename %s\n", filename);
-
-  // Open shared memory file: name, oflags, mode
-  fd = shm_open(filename, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-  if (fd < 0) {
-      fprintf(stderr, "Failed to open cbuffer shm file\n");
-      return cbuffer;
-  }
-
-  ret = ftruncate(fd, file_size);
-  if (ret) {
-      fprintf(stderr, "Failed to truncate cbuffer shm file\n");
-      ret = shm_unlink(filename);
-      if (ret) fprintf(stderr, "Failed to unlink cbuffer shm file\n");
-      return cbuffer;
-  }
-
-  // Create sys state mmap: address, size, protection, flags, fd, offset
-  mmap_ptr = mmap(NULL, sizeof(file_size),
-                  PROT_READ | PROT_WRITE,
-                  MAP_SHARED, fd, 0);
-  if (mmap_ptr == MAP_FAILED) {
-      fprintf(stderr, "Failed to mmap cbuffer\n");
-      ret = shm_unlink(filename);
-      if (ret) fprintf(stderr, "Failed to unlink cbuffer shm file\n");
-      return cbuffer;
-  }
-
-  free(filename);
-
-  cbuffer = (circular_buffer_t *)mmap_ptr;
-  mmap_ptr += sizeof(circular_buffer_t);
-  messages = (message_t *)mmap_ptr;
-
-  circular_buffer_init_with_cbuffer(cbuffer, messages, size);
-
-  return cbuffer;
-}
-
-circular_buffer_t *shm_cbuffer_get(char *buffer_name, unsigned int size)
-{
     int ret, fd;
     char* filename;
     char* mmap_ptr;
@@ -214,12 +157,13 @@ circular_buffer_t *shm_cbuffer_get(char *buffer_name, unsigned int size)
     file_size = sizeof(circular_buffer_t) + size * sizeof(message_t);
 
     // Open shared memory file: name, oflags, mode
-    fd = shm_open(filename, O_RDWR, S_IRUSR | S_IWUSR);
+    fd = shm_open(filename, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
     if (fd < 0) {
         fprintf(stderr, "Failed to open cbuffer shm file\n");
         return cbuffer;
     }
 
+    // Size shared memory file
     ret = ftruncate(fd, file_size);
     if (ret) {
         fprintf(stderr, "Failed to truncate cbuffer shm file\n");
@@ -244,7 +188,48 @@ circular_buffer_t *shm_cbuffer_get(char *buffer_name, unsigned int size)
     cbuffer = (circular_buffer_t *)mmap_ptr;
     mmap_ptr += sizeof(circular_buffer_t);
     messages = (message_t *)mmap_ptr;
-    cbuffer->buffer = messages;
+
+    circular_buffer_init_with_cbuffer(cbuffer, messages, size);
+
+    return cbuffer;
+}
+
+circular_buffer_t *shm_cbuffer_get(char *buffer_name, unsigned int size,
+                                   circular_buffer_t *cbuffer_address)
+{
+    int ret, fd;
+    char* filename;
+    circular_buffer_t *cbuffer = NULL;
+    unsigned int file_size;
+
+    filename = shm_filename_get(buffer_name, CBUFFER_SUFIX);
+    if (!filename) {
+        return cbuffer;
+    }
+
+    file_size = sizeof(circular_buffer_t) + size * sizeof(message_t);
+
+    // Open shared memory file: name, oflags, mode
+    fd = shm_open(filename, O_RDWR, S_IRUSR | S_IWUSR);
+    if (fd < 0) {
+        fprintf(stderr, "Failed to open cbuffer shm file\n");
+        return cbuffer;
+    }
+
+    // Create sys state mmap: address, size, protection, flags, fd, offset
+    cbuffer = mmap(cbuffer_address, sizeof(file_size),
+                    PROT_READ | PROT_WRITE,
+                    MAP_SHARED | MAP_FIXED,
+                    fd, 0);
+    if (cbuffer == MAP_FAILED) {
+        fprintf(stderr, "Failed to mmap cbuffer\n");
+        cbuffer = NULL;
+        ret = shm_unlink(filename);
+        if (ret) fprintf(stderr, "Failed to unlink cbuffer shm file\n");
+        return cbuffer;
+    }
+
+    free(filename);
 
     return cbuffer;
 }

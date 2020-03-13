@@ -17,6 +17,13 @@ int shared_system_init(char* buffer_name, unsigned int buffer_size) {
     unsigned int producer_count;
     unsigned int consumer_count;
 
+    // Set sbuffer to shared memory
+    cbuffer = shm_cbuffer_set(buffer_name, buffer_size);
+    if (!cbuffer) {
+        ret = EXIT_FAILURE;
+        return ret;
+    }
+
     // Set system shared state structure to shared memory
     system_state = shm_system_state_set(buffer_name);
     if (!system_state){
@@ -31,6 +38,7 @@ int shared_system_init(char* buffer_name, unsigned int buffer_size) {
     system_alive = system_state->keep_alive;
     producer_count = system_state->producer_count;
     consumer_count = system_state->consumer_count;
+    system_state->cbuffer_address = cbuffer;
 
     // Initialize cbuffer empty space semaphore to buffer size
     // Semaphore, Processes != 0, Value
@@ -44,20 +52,6 @@ int shared_system_init(char* buffer_name, unsigned int buffer_size) {
     ret = sem_init(&system_state->sem_cbuffer_message, 1, 0);
     if (ret) {
         fprintf(stderr, "Failed to init cbuffer message semaphore\n");
-        return ret;
-    }
-
-    // Initialize buffer size mutex (semaphore value to one)
-    ret = sem_init(&system_state->mut_buffer_size, 1, 1);
-    if (ret) {
-        fprintf(stderr, "Failed to init buffer size mutex\n");
-        return ret;
-    }
-
-    // Initialize keep alive mutex (semaphore value to one)
-    ret = sem_init(&system_state->mut_keep_alive, 1, 1);
-    if (ret) {
-        fprintf(stderr, "Failed to init keep alive mutex\n");
         return ret;
     }
 
@@ -89,13 +83,6 @@ int shared_system_init(char* buffer_name, unsigned int buffer_size) {
         return ret;
     }
 
-    // Set sbuffer to shared memory
-    cbuffer = shm_cbuffer_set(buffer_name, buffer_size);
-    if (!cbuffer) {
-        ret = EXIT_FAILURE;
-        return ret;
-    }
-
     while(system_alive || producer_count != 0 || consumer_count != 0) {
         // Creator waits for a random exponential time according the given mean
         fprintf(stdout,
@@ -105,26 +92,7 @@ int shared_system_init(char* buffer_name, unsigned int buffer_size) {
                 buffer_name);
         sleep(wait_time_s);
 
-        // Lock keep alive mutex
-        ret = sem_wait(&system_state->mut_keep_alive);
-        if (ret) {
-            fprintf(stdout,
-                    "\nCreator PID: %u failed to lock keep alive: %s\n",
-                    getpid(),
-                    buffer_name);
-        }
-
         system_alive = system_state->keep_alive;
-
-        // Unlock keep alive mutex
-        ret = sem_post(&system_state->mut_keep_alive);
-        if (ret) {
-            fprintf(stdout,
-                    "\nCreator PID: %u failed to unlock keep alive: %s\n",
-                    getpid(),
-                    buffer_name);
-            return ret;
-        }
 
         // Lock producer count mutex
         ret = sem_wait(&system_state->mut_producer_count);
