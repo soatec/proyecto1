@@ -1,6 +1,7 @@
 #ifndef PROYECTO1_PRODUCER_H
 #define PROYECTO1_PRODUCER_H
 
+#include <sys/time.h>
 #include "buffer.h"
 #include "utils.h"
 
@@ -27,10 +28,10 @@ typedef struct producer_t
     unsigned int waited_time_s;
 
     /** Blocked time by cbuffer empty space semaphore in seconds */
-    unsigned int blocked_time_by_empty_sem_s;
+    struct timeval blocked_time_by_empty_sem_s;
 
     /** Blocked time by cbuffer write mutex in seconds */
-    unsigned int blocked_time_by_wr_mut_s;
+    struct timeval blocked_time_by_wr_mut_s;
 
     /** System shared state **/
     system_sh_state_t *sys_state;

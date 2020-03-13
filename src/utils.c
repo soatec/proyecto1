@@ -16,6 +16,12 @@
 // Circular buffer filename sufix
 #define CBUFFER_SUFIX "_cbuffer"
 
+// Conversion factor from seconds to microseconds
+#define S_TO_US 1000000
+
+// Conversion factor from milliseconds to microseconds
+#define MS_TO_US 1000
+
 // Private functions
 
 /*
@@ -283,4 +289,37 @@ int cbuffer_unmap_close(circular_buffer_t* cbuffer, char* buffer_name)
 
     free(filename);
     return EXIT_SUCCESS;
+}
+
+struct timeval format_accumulated_time(struct timeval time)
+{
+    struct timeval result_time;
+    unsigned long spare_seconds;
+
+    // Compute how many seconds are in microseconds
+    spare_seconds =  time.tv_usec / S_TO_US;
+
+    // Sum spare seconds to accumulated seconds
+    result_time.tv_sec = time.tv_sec + spare_seconds;
+
+    // Substract spare seconds to accumulated microseconds
+    result_time.tv_usec = (time.tv_usec - spare_seconds * S_TO_US) / MS_TO_US;
+
+    return result_time;
+}
+
+struct timeval get_time_interval(struct timeval start_time, struct timeval end_time)
+{
+    struct timeval time_interval;
+
+    time_interval.tv_sec = end_time.tv_sec - start_time.tv_sec;
+
+    if (end_time.tv_usec < start_time.tv_usec) {
+        time_interval.tv_sec -= 1;
+        time_interval.tv_usec = end_time.tv_usec + S_TO_US - start_time.tv_usec;
+    } else {
+        time_interval.tv_usec = end_time.tv_usec - start_time.tv_usec;
+    }
+
+    return time_interval;
 }

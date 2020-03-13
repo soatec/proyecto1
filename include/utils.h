@@ -88,4 +88,14 @@ int sys_state_unmap_close(system_sh_state_t* sys_state, char* buffer_name);
  */
 int cbuffer_unmap_close(circular_buffer_t* cbuffer, char* buffer_name);
 
+/**
+ * Format accumulated time into seconds and milliseconds
+ */
+struct timeval format_accumulated_time(struct timeval time);
+
+/**
+ * Get time interval in seconds and microseconds
+ */
+struct timeval get_time_interval(struct timeval start_time, struct timeval end_time);
+
 #endif //PROYECTO1_UTILS_H
