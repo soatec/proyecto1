@@ -5,6 +5,7 @@
 #include "consumer.h"
 
 int main(int argc, char *argv[]) {
+    int status;
     int opt;
     char *buffer_name = NULL;
     int mean_s = -1;
@@ -37,8 +38,17 @@ int main(int argc, char *argv[]) {
     }
 
     consumer_t consumer;
-    new_consumer(&consumer, buffer_name, mean_s);
-    run_consumer(&consumer);
+    status = new_consumer(&consumer, buffer_name, mean_s);
+    if (status){
+        fprintf(stderr, "Error while creating consumer\n");
+        return status;
+    }
+
+    status = run_consumer(&consumer);
+    if (status){
+        fprintf(stderr, "Error while running consumer\n");
+        return status;
+    }
 
     return EXIT_SUCCESS;
 }

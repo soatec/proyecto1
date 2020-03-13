@@ -11,10 +11,10 @@ int new_consumer(consumer_t *consumer, char *buffer_name, int mean_s)
     consumer->exp_mean_wait_s = mean_s;
     consumer->message_count = 0;
     consumer->waited_time_s = 0;
-    consumer->blocked_time_s = 0;
+    consumer->blocked_time_by_empty_sem_s = 0;
+    consumer->blocked_time_by_wr_mut_s = 0;
     consumer->sys_state = shm_system_state_get(buffer_name);
     if (!consumer->sys_state) return EXIT_FAILURE;
-
     consumer->cbuffer = shm_cbuffer_get(buffer_name,
                                         consumer->sys_state->buffer_size,
                                         consumer->sys_state->cbuffer_address);
@@ -28,10 +28,37 @@ int run_consumer(consumer_t *consumer)
 
     int ret;
     message_t message;
-    unsigned int wait_time_s;
-    bool system_alive;
+    unsigned int wait_time_s, cbuffer_index;
+    bool system_alive = consumer->sys_state->keep_alive;
+    unsigned int producer_count, consumer_count;
 
-    system_alive = consumer->sys_state->keep_alive;
+    // Lock consumer count mutex
+    ret = sem_wait(&consumer->sys_state->mut_consumer_count);
+    if (ret) {
+        fprintf(stderr,
+                "\nConsumer PID: %u for buffer: %s failed to lock consumer count\n",
+                consumer->process_id,
+                consumer->buffer_name);
+    }
+
+    // Increment consumer counter
+    consumer->sys_state->consumer_count += 1;
+
+    // Unlock consumer count mutex
+    ret = sem_post(&consumer->sys_state->mut_consumer_count);
+    if (ret) {
+        fprintf(stderr,
+                "\nConsumer PID: %u for buffer: %s failed to unlock consumer count\n",
+                consumer->process_id,
+                consumer->buffer_name);
+        return ret;
+    }
+
+    fprintf(stderr,
+            "\nConsumer PID: %u for buffer: %s created\n",
+            consumer->process_id,
+            consumer->buffer_name);
+
 
     while(system_alive) {
         // Consumer waits for a random exponential time according the given mean
@@ -63,13 +90,13 @@ int run_consumer(consumer_t *consumer)
         }
 
         // Read message into shared buffer
-        ret = circular_buffer_get(consumer->cbuffer, &message);
-        if (ret < 0) {
+        cbuffer_index = circular_buffer_get(consumer->cbuffer, &message);
+        if (cbuffer_index < 0) {
             fprintf(stdout,
                     "\nConsumer PID: %u failed to read into buffer: %s\n",
                     consumer->process_id,
                     consumer->buffer_name);
-            return ret;
+            return EXIT_FAILURE;
         }
 
         // Unlock cbuffer read mutex
@@ -92,8 +119,14 @@ int run_consumer(consumer_t *consumer)
             return ret;
         }
 
+        producer_count = consumer->sys_state->producer_count;
+        consumer_count = consumer->sys_state->consumer_count;
+
         // Print message
-        fprintf(stdout, "\nBuffer: %s was read\n", consumer->buffer_name);
+        fprintf(stdout, "\nBuffer: %s was read at index %u\n"
+                        " Producers counter %u, Consumers counter %u\n",
+                consumer->buffer_name, cbuffer_index, producer_count,
+                consumer_count);
         message_print(message);
 
         consumer->message_count++;
@@ -105,11 +138,45 @@ int run_consumer(consumer_t *consumer)
         system_alive = consumer->sys_state->keep_alive;
 
     }
-    printf("-------------------- FINALIZATION --------------------\n");
-    printf("The consumer with process id %d has finalized\n", consumer->process_id);
-    printf("Number of consumed messages: %d\n", consumer->message_count);
-    printf("Accumulated waiting time: %d seconds\n", consumer->waited_time_s);
-    printf("Accumulated time blocked by semaphores: %d seconds\n", consumer->blocked_time_s);
-    printf("------------------------------------------------------\n");
+
+    // Lock consumer count mutex
+    ret = sem_wait(&consumer->sys_state->mut_consumer_count);
+    if (ret) {
+        fprintf(stderr,
+                "\nConsumer PID: %u for buffer: %s failed to lock consumer count\n",
+                consumer->process_id,
+                consumer->buffer_name);
+    }
+
+    // Decrement consumer counter
+    consumer->sys_state->consumer_count -= 1;
+    consumer_count = consumer->sys_state->consumer_count;
+
+    // Unlock consumer count mutex
+    ret = sem_post(&consumer->sys_state->mut_consumer_count);
+    if (ret) {
+        fprintf(stderr,
+                "\nConsumer PID: %u for buffer: %s failed to unlock consumer count\n",
+                consumer->process_id,
+                consumer->buffer_name);
+        return ret;
+    }
+
+    fprintf(stdout,
+            "\n Consumer PID: %u for buffer: %s has finalized {\n",
+            consumer->process_id, consumer->buffer_name);
+    fprintf(stdout," Consumer counter %u\n", consumer_count);
+    fprintf(stdout,
+            " Consumed messages counter: %u\n", consumer->message_count);
+    fprintf(stdout,
+            " Accumulated waiting time: %u seconds\n", consumer->waited_time_s);
+
+    fprintf(stdout,
+            " Accumulated blocked time by cbuffer empty space semaphore: %d seconds\n",
+            consumer->blocked_time_by_empty_sem_s);
+    fprintf(stdout,
+            " Accumulated blocked time by cbuffer write mutex: %d seconds\n",
+            consumer->blocked_time_by_wr_mut_s);
+    fprintf(stdout, "}\n");
     return ret;
 }
