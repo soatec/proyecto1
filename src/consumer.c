@@ -188,6 +188,11 @@ int run_consumer(consumer_t *consumer)
             break;
         }
 
+        if (message.consumer_key == -1){
+            printf("Finalize message recieved.\n");
+            break;
+        }
+
         system_alive = consumer->sys_state->keep_alive;
 
     }
