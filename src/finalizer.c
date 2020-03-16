@@ -59,6 +59,11 @@ int run_finalizer(finalizer_t *finalizer){
         return ret;
     }
 
+
+    fprintf(stderr, "Initializing finalizer\n");
+
+
+    fprintf(stderr, "Consumer count %i\n", consumer_count);
     //Will send finalize messages until consumers are all terminated.
     while(consumer_count>0){
         // Get current time
@@ -211,6 +216,8 @@ int run_finalizer(finalizer_t *finalizer){
     }
 
     //Will wait for producers before unmapping
+
+    fprintf(stderr, "Producer count %i\n", producer_count);
     while(producer_count > 0){
         //signal producers????
         producer_count = finalizer->sys_state->producer_count;

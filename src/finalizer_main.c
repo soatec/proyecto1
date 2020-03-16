@@ -30,11 +30,17 @@ int main(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
   }
 
+
+  fprintf(stderr, "Initializing finalizer\n");
+
   status = new_finalizer(&finalizer, buffer_name);
   if(status){
     fprintf(stderr, "Error while creating finalizer\n");
     return status;
   }
+
+
+  fprintf(stderr, "Running finalizer\n");
 
   status = run_finalizer(&finalizer);
     if (status){
