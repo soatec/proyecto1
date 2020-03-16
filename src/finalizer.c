@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <semaphore.h>
 #include "finalizer.h"
 #include "buffer.h"
 
@@ -29,7 +31,7 @@ int run_finalizer(finalizer_t *finalizer){
     int ret;
     message_t message;
     struct timeval start_time, end_time, time_interval, start_p_c, end_p_c, start_all, end_all;
-    unsigned int time_elapsed, cbuffer_index, waiting_c, waiting_p;
+    unsigned int cbuffer_index;
     unsigned int producer_count, consumer_count;
 
 
@@ -231,11 +233,14 @@ int run_finalizer(finalizer_t *finalizer){
 
 
     //Unmap buffer
-    finalizer->cbuffer = cbuffer_unmap_close(finalizer->cbuffer, finalizer->buffer_name);
+    ret = cbuffer_unmap_close(finalizer->cbuffer, finalizer->buffer_name);
+    if (!ret) {
+        exit(EXIT_FAILURE);
+    }
 
     //Unmap system state
-    finalizer->sys_state = sys_state_unmap_close(finalizer->sys_state, finalizer->buffer_name);
-    if (!finalizer->sys_state) {
+    ret = sys_state_unmap_close(finalizer->sys_state, finalizer->buffer_name);
+    if (!ret) {
         exit(EXIT_FAILURE);
     }
 
@@ -255,7 +260,7 @@ int run_finalizer(finalizer_t *finalizer){
     finalizer->time_elapsed.tv_usec = time_interval.tv_usec;
     
 
-    //TODO STATS
+    //STATS
     fprintf(stdout,
             "\n Finalizer PID: %u for buffer: %s has finalized {\n",
             finalizer->process_id, finalizer->buffer_name);
@@ -279,4 +284,6 @@ int run_finalizer(finalizer_t *finalizer){
             " Finalizer total running time: %lu seconds and %lu milliseconds\n",
            finalizer->time_elapsed.tv_sec, finalizer->time_elapsed.tv_usec);
     fprintf(stdout, "}\n");
+
+    return ret;
 }
