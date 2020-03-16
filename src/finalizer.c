@@ -30,7 +30,7 @@ int run_finalizer(finalizer_t *finalizer){
 
     int ret;
     message_t message;
-    struct timeval start_time, end_time, time_interval, start_p_c, end_p_c, start_all, end_all;
+    struct timeval start_time, end_time, time_interval, start_all, end_all;
     unsigned int cbuffer_index;
     unsigned int producer_count, consumer_count;
 
@@ -49,19 +49,7 @@ int run_finalizer(finalizer_t *finalizer){
     producer_count = finalizer->sys_state->producer_count;
     consumer_count = finalizer->sys_state->consumer_count;
 
-    // Get current time
-    ret = gettimeofday(&start_p_c, NULL);
-    if (ret) {
-        fprintf(stderr,
-                "\nFinalizer PID: %u for buffer: %s failed to get current time\n",
-                finalizer->process_id,
-                finalizer->buffer_name);
-        return ret;
-    }
-
-
     fprintf(stderr, "Initializing finalizer\n");
-
 
     fprintf(stderr, "Consumer count %i\n", consumer_count);
     //Will send finalize messages until consumers are all terminated.
@@ -190,33 +178,7 @@ int run_finalizer(finalizer_t *finalizer){
         message_print(message);
     }
 
-    // Get current time
-    ret = gettimeofday(&end_p_c, NULL);
-    if (ret) {
-        fprintf(stderr,
-                "\nFinalizer PID: %u for buffer: %s failed to get current time\n",
-                finalizer->process_id,
-                finalizer->buffer_name);
-        return ret;
-    }
-    
-    // Compute time waiting for consumers
-    time_interval = get_time_interval(start_p_c, end_p_c);
-    finalizer->waiting_consumers.tv_sec = time_interval.tv_sec;
-    finalizer->waiting_consumers.tv_usec = time_interval.tv_usec;
-
-    // Get current time
-    ret = gettimeofday(&start_p_c, NULL);
-    if (ret) {
-        fprintf(stderr,
-                "\nFinalizer PID: %u for buffer: %s failed to get current time\n",
-                finalizer->process_id,
-                finalizer->buffer_name);
-        return ret;
-    }
-
     //Will wait for producers before unmapping
-
     fprintf(stderr, "Producer count %i\n", producer_count);
     while(producer_count > 0){
         //signal producers????
@@ -250,24 +212,8 @@ int run_finalizer(finalizer_t *finalizer){
                 finalizer->process_id,
                 finalizer->buffer_name);
         return ret;
+        }
     }
-    }
-
-    // Get current time
-    ret = gettimeofday(&end_p_c, NULL);
-    if (ret) {
-        fprintf(stderr,
-                "\nFinalizer PID: %u for buffer: %s failed to get current time\n",
-                finalizer->process_id,
-                finalizer->buffer_name);
-        return ret;
-    }
-
-    // Compute time waiting for producers
-    time_interval = get_time_interval(start_p_c, end_p_c);
-    finalizer->waiting_producers.tv_sec = time_interval.tv_sec;
-    finalizer->waiting_producers.tv_usec = time_interval.tv_usec;
-
 
     //Unmap buffer
     ret = cbuffer_unmap_close(finalizer->cbuffer, finalizer->buffer_name);
@@ -311,12 +257,6 @@ int run_finalizer(finalizer_t *finalizer){
     fprintf(stdout,
             " Finalizer accumulated blocked time by cbuffer write mutex: %lu seconds and %lu milliseconds\n",
            finalizer->blocked_time_by_wr_mut_s.tv_sec, finalizer->blocked_time_by_wr_mut_s.tv_usec);
-    fprintf(stdout,
-            " Finalizer total consumer waiting time: %lu seconds and %lu milliseconds\n",
-           finalizer->waiting_consumers.tv_sec, finalizer->waiting_consumers.tv_usec);
-    fprintf(stdout,
-            " Finalizer total producer waiting time: %lu seconds and %lu milliseconds\n",
-           finalizer->waiting_producers.tv_sec, finalizer->waiting_producers.tv_usec);
     fprintf(stdout,
             " Finalizer total running time: %lu seconds and %lu milliseconds\n",
            finalizer->time_elapsed.tv_sec, finalizer->time_elapsed.tv_usec);
