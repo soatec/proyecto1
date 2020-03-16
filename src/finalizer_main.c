@@ -7,8 +7,9 @@
 
 int main(int argc, char *argv[]) {
   int opt;
+  int status;
   char * buffer_name = NULL;
-  system_sh_state_t *system_state;
+  finalizer_t finalizer;
 
   // Get buffer name
   while ((opt = getopt(argc, argv, "b:")) != -1) {
@@ -29,12 +30,17 @@ int main(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
   }
 
-  system_state = shm_system_state_get(buffer_name);
-  if (!system_state) {
-    exit(EXIT_FAILURE);
+  status = new_finalizer(&finalizer, buffer_name);
+  if(status){
+    fprintf(stderr, "Error while creating finalizer\n");
+    return status;
   }
 
-  system_state->keep_alive = false;
-
+  status = run_finalizer(&finalizer);
+    if (status){
+        fprintf(stderr, "Error while running finalizer\n");
+        return status;
+  }
+  
   exit(EXIT_SUCCESS);
 }
