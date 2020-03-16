@@ -23,15 +23,6 @@ typedef struct finalizer_t
     /** Blocked time by cbuffer empty space semaphore in seconds */
     struct timeval blocked_time_by_empty_sem_s;
 
-    /** Blocked time by cbuffer write mutex in seconds */
-    struct timeval blocked_time_by_wr_mut_s;
-
-    /** Waiting time for producers in seconds */
-    struct timeval waiting_producers;
-
-    /** Waiting time for consumers in seconds */
-    struct timeval waiting_consumers;
-
     /** Whole time for finalizer to run in seconds */
     struct timeval time_elapsed;
 

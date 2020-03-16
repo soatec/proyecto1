@@ -81,7 +81,6 @@ int run_creator(system_sh_state_t *system_state, char* buffer_name) {
     unsigned int consumer_count = system_state->consumer_count;
 
     while(system_alive || producer_count != 0 || consumer_count != 0) {
-        // Creator waits for a random exponential time according the given mean
         fprintf(stdout,
                 "\nCreator with PID %u has been created %u seconds ago - buffer name: %s\n",
                 getpid(),
