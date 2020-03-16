@@ -7,7 +7,7 @@
 // Structs
 
 /**
- * Producer structure
+ * Finalizer structure
  */
 typedef struct finalizer_t
 {
@@ -42,8 +42,21 @@ typedef struct finalizer_t
     circular_buffer_t *cbuffer;
 } finalizer_t;
 
+/**
+ * Initialize new finalizer
+ *
+ * @param finalizer
+ * @param buffer_name
+ * @return
+ */
 int new_finalizer(finalizer_t *finalizer, char* buffer_name);
 
+/**
+ * Run finalizer
+ *
+ * @param finalizer
+ * @return
+ */
 int run_finalizer(finalizer_t *finalizer);
 
 #endif //PROYECTO1_FINALIZER_H
