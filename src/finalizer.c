@@ -221,6 +221,36 @@ int run_finalizer(finalizer_t *finalizer){
     while(producer_count > 0){
         //signal producers????
         producer_count = finalizer->sys_state->producer_count;
+
+        // Unlock cbuffer write mutex
+        ret = sem_post(&finalizer->sys_state->mut_cbuffer_write);
+        if (ret) {
+            fprintf(stderr,
+                    "\nFinalizer PID: %u for buffer: %s failed to unlock cbuffer write\n",
+                    finalizer->process_id,
+                    finalizer->buffer_name);
+            return ret;
+        }
+
+        // Post message semaphore
+        ret = sem_post(&finalizer->sys_state->sem_cbuffer_message);
+        if (ret) {
+            fprintf(stderr,
+                    "\nFinalizer PID: %u for buffer: %s failed to post message semaphore\n",
+                    finalizer->process_id,
+                    finalizer->buffer_name);
+            return ret;
+        }
+
+        // Unlock producer count mutex
+        ret = sem_post(&finalizer->sys_state->mut_producer_count);
+        if (ret) {
+        fprintf(stderr,
+                "\nFinalizer PID: %u for buffer: %s failed to unlock producer count\n",
+                finalizer->process_id,
+                finalizer->buffer_name);
+        return ret;
+    }
     }
 
     // Get current time
@@ -241,13 +271,13 @@ int run_finalizer(finalizer_t *finalizer){
 
     //Unmap buffer
     ret = cbuffer_unmap_close(finalizer->cbuffer, finalizer->buffer_name);
-    if (!ret) {
+    if (ret) {
         exit(EXIT_FAILURE);
     }
 
     //Unmap system state
     ret = sys_state_unmap_close(finalizer->sys_state, finalizer->buffer_name);
-    if (!ret) {
+    if (ret) {
         exit(EXIT_FAILURE);
     }
 
