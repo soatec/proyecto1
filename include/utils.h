@@ -27,6 +27,9 @@ typedef struct system_sh_state {
     /** Mutex to protect consumers counter */
     sem_t mut_consumer_count;
 
+    /** Finalizer counter */
+    unsigned int finalizer_count;
+
     /** Semaphore to indicate empty space in cbuffer */
     sem_t sem_cbuffer_empty;
 
@@ -38,6 +41,9 @@ typedef struct system_sh_state {
 
     /** Mutex to protect message read from cbuffer */
     sem_t mut_cbuffer_read;
+
+    /** Mutex to protect creator execution */
+    sem_t mut_creator_running;
 
     /** cbuffer address */
     circular_buffer_t* cbuffer_address;
@@ -55,23 +61,27 @@ void message_print(message_t message);
 
 /**
  * Set shared memory system state
+ * Returns NULL on error
  */
 system_sh_state_t *shm_system_state_set(char *buffer_name);
 
 /**
  * Get shared memory system state
  * Caller is responsive for unmapping the pointer and closing the file
+ * Returns NULL on error
  */
 system_sh_state_t *shm_system_state_get(char *buffer_name);
 
 /**
  * Set shared circular buffer
+ * Returns NULL on error
  */
 circular_buffer_t *shm_cbuffer_set(char *buffer_name, unsigned int size);
 
 /**
  * Get system shared state
  * Caller is responsive for unmapping the pointer and closing the file
+ * Returns NULL on error
  */
 circular_buffer_t *shm_cbuffer_get(char *buffer_name, unsigned int size,
                                    circular_buffer_t *cbuffer_address);
@@ -81,6 +91,12 @@ circular_buffer_t *shm_cbuffer_get(char *buffer_name, unsigned int size,
  * Returns 0 on success, otherwise an error code
  */
 int sys_state_unmap_close(system_sh_state_t* sys_state, char* buffer_name);
+
+/**
+ * Destroy system shared state semaphores
+ *  Returns 0 on success, otherwise an error code
+ */
+int sys_state_destroy_semaphores(system_sh_state_t* sys_state);
 
 /**
  * Unmap cbuffer shared memory pointer and close file descriptor
