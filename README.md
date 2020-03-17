@@ -1,15 +1,15 @@
 # Proyecto 1: Memoria Compartida: Productor - Consumidor
 
 El propósito de este proyecto es experimentar el uso de memoria compartida entre procesos *heavyweight*.
-La solución del problema es mediante la biblioteca de semáforos POSIX y POSIX memoria compartida IPC
+La solución del problema es implementada mediante la biblioteca de semáforos POSIX y memoria compartida IPC.
 
-### Estructura y compilar el proyecto
+### Estructura y compilación del proyecto
 - Proyecto1: El proyecto se encuentra todo en el directorio proyecto1.
 - include: Contiene los .h
 - src: Son los .c de lo archivos Buffer, Creador, Productor, Consumidor y Finalizador.
 - build: contiene los archivos ejecutables, generados por el makefile
 
-Para correr el proyecto, se utiliza el archivo makefile:
+Para compilar el proyecto, se utiliza el Makefile:
 ```
 make
 ```
@@ -60,3 +60,6 @@ Recibe como parámetros -b buffer_name
 - Jorge Bolaños Solís.
 - Alonso Mondal Durán.
 - Kenneth Paniagua Díaz.
+
+
+Este proyecto se puede encontrar en https://github.com/soatec/proyecto1
