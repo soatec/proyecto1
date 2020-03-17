@@ -15,8 +15,7 @@
  * @param cbuffer
  * @return
  */
-int new_creator(char* buffer_name, unsigned int buffer_size,
-                system_sh_state_t *system_state, circular_buffer_t* cbuffer);
+system_sh_state_t *new_creator(char* buffer_name, unsigned int buffer_size);
 
 /**
  * Run creator

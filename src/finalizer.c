@@ -6,11 +6,14 @@
 #include "finalizer.h"
 #include "buffer.h"
 
+#define FINALIZER_WAIT_TIME_S 1
+
 int new_finalizer(finalizer_t *finalizer, char *buffer_name){
     finalizer->process_id = getpid();
     finalizer->buffer_name = buffer_name;
     finalizer->message_count = 0;
     finalizer->blocked_time_by_empty_sem_s = (struct timeval){0};
+    finalizer->blocked_time_by_creator_mut_s = (struct timeval){0};
 
     finalizer->sys_state = shm_system_state_get(buffer_name);
     if (!finalizer->sys_state) return EXIT_FAILURE;
@@ -29,6 +32,17 @@ int run_finalizer(finalizer_t *finalizer){
     struct timeval start_time, end_time, time_interval, start_all, end_all;
     unsigned int cbuffer_index;
     unsigned int producer_count, consumer_count;
+
+    if (finalizer->sys_state->finalizer_count > 0) {
+      fprintf(stderr,
+              "\nFinalizer PID: %u for buffer: %s must exit, probably another"
+              " finalizer is runnning\n",
+              finalizer->process_id,
+              finalizer->buffer_name);
+      return EXIT_FAILURE;
+    }
+
+    finalizer->sys_state->finalizer_count++;
 
     // Start finalization process
     finalizer->sys_state->keep_alive = false;
@@ -59,6 +73,8 @@ int run_finalizer(finalizer_t *finalizer){
           return ret;
       }
 
+      sleep(FINALIZER_WAIT_TIME_S);
+
       // Get producers and consumers count
       producer_count = finalizer->sys_state->producer_count;
       consumer_count = finalizer->sys_state->consumer_count;
@@ -73,7 +89,8 @@ int run_finalizer(finalizer_t *finalizer){
 
     // Finalize producers
     while(producer_count > 0) {
-        producer_count = finalizer->sys_state->producer_count;
+        sleep(FINALIZER_WAIT_TIME_S);
+
         fprintf(stdout,
                 "\nFinalizer PID: %u for buffer: %s producer_count: %u\n",
                 finalizer->process_id,
@@ -99,10 +116,18 @@ int run_finalizer(finalizer_t *finalizer){
                     finalizer->buffer_name);
             return ret;
         }
+
+        producer_count = finalizer->sys_state->producer_count;
     }
 
     // Finalize messages until consumers are all terminated.
     while(consumer_count > 0) {
+        // If cbuffer is not empty, it means consumers are sleeping
+        if (!circular_buffer_empty(finalizer->cbuffer)) {
+            sleep(FINALIZER_WAIT_TIME_S);
+            continue;
+        }
+
         // Get current time
         message.time_of_creation = time(NULL);
 
@@ -177,7 +202,6 @@ int run_finalizer(finalizer_t *finalizer){
         }
 
         // Get producers and consumers count
-        producer_count = finalizer->sys_state->producer_count;
         consumer_count = finalizer->sys_state->consumer_count;
 
         // Increment produced messages count
@@ -204,19 +228,62 @@ int run_finalizer(finalizer_t *finalizer){
         consumer_count = finalizer->sys_state->consumer_count;
     }
 
-    // TODO: destroy semaphores and mutexes
+    // Get creator running mutex start time
+    ret = gettimeofday(&start_time, NULL);
+    if (ret) {
+        fprintf(stderr,
+                "\nFinalizer PID: %u for buffer: %s failed to get current time\n",
+                finalizer->process_id,
+                finalizer->buffer_name);
+        return ret;
+    }
+
+    // Lock creator running mutex
+    ret = sem_wait(&finalizer->sys_state->mut_creator_running);
+    if (ret) {
+        fprintf(stderr,
+                "\nFinalizer PID: %u for buffer: %s failed to lock creator runnning\n",
+                finalizer->process_id,
+                finalizer->buffer_name);
+        return ret;
+    }
+
+    // Get creator running mutex end time
+    ret = gettimeofday(&end_time, NULL);
+    if (ret) {
+        fprintf(stderr,
+                "\nFinalizer PID: %u for buffer: %s failed to get current time\n",
+                finalizer->process_id,
+                finalizer->buffer_name);
+        return ret;
+    }
+
+    // Compute blocked time by creator running mutex
+    time_interval = get_time_interval(start_time, end_time);
+    finalizer->blocked_time_by_creator_mut_s.tv_sec += time_interval.tv_sec;
+    finalizer->blocked_time_by_creator_mut_s.tv_usec += time_interval.tv_usec;
+
+    // Unlock creator running mutex
+    ret = sem_post(&finalizer->sys_state->mut_creator_running);
+    if (ret) {
+        fprintf(stderr,
+                "\nFinalizer PID: %u for buffer: %s failed to unlock creator runnning\n",
+                finalizer->process_id,
+                finalizer->buffer_name);
+        return ret;
+    }
+
+    // Destroy semaphores and mutexes
+    ret = sys_state_destroy_semaphores(finalizer->sys_state);
+    if (ret) return ret;
 
     //Unmap buffer
     ret = cbuffer_unmap_close(finalizer->cbuffer, finalizer->buffer_name);
-    if (ret) {
-        exit(EXIT_FAILURE);
-    }
+    if (ret) return ret;
 
     //Unmap system state
     ret = sys_state_unmap_close(finalizer->sys_state, finalizer->buffer_name);
-    if (ret) {
-        exit(EXIT_FAILURE);
-    }
+    if (ret) return ret;
 
     // Get finalization end time
     ret = gettimeofday(&end_all, NULL);
@@ -233,17 +300,25 @@ int run_finalizer(finalizer_t *finalizer){
     finalizer->time_elapsed.tv_sec = time_interval.tv_sec;
     finalizer->time_elapsed.tv_usec = time_interval.tv_usec;
 
-
     //STATS
     fprintf(stdout,
             "\n Finalizer PID: %u for buffer: %s has finalized {\n",
             finalizer->process_id, finalizer->buffer_name);
     fprintf(stdout," Producers counter %u\n", producer_count);
+    fprintf(stdout," Consumers counter %u\n", consumer_count);
     fprintf(stdout,
             " Finalizer messages counter: %u\n", finalizer->message_count);
+
+    finalizer->blocked_time_by_empty_sem_s = format_accumulated_time(finalizer->blocked_time_by_empty_sem_s);
     fprintf(stdout,
             " Finalizer accumulated blocked time by cbuffer empty space semaphore: %lu seconds and %lu milliseconds\n",
             finalizer->blocked_time_by_empty_sem_s.tv_sec, finalizer->blocked_time_by_empty_sem_s.tv_usec);
+
+    finalizer->blocked_time_by_creator_mut_s = format_accumulated_time(finalizer->blocked_time_by_creator_mut_s);
+    fprintf(stdout,
+            " Finalizer accumulated blocked time by creator running mutex: %lu seconds and %lu milliseconds\n",
+            finalizer->blocked_time_by_creator_mut_s.tv_sec, finalizer->blocked_time_by_creator_mut_s.tv_usec);
+
     finalizer->time_elapsed = format_accumulated_time(finalizer->time_elapsed);
     fprintf(stdout,
             " Finalizer total running time: %lu seconds and %lu milliseconds\n",

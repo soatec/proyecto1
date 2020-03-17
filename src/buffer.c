@@ -55,25 +55,15 @@ void circular_buffer_free(circular_buffer_t* cbuffer)
     free(cbuffer);
 }
 
-bool circular_buffer_full(circular_buffer_t* cbuffer)
-{
-    return cbuffer->full;
-}
-
 bool circular_buffer_empty(circular_buffer_t* cbuffer)
 {
     return (!cbuffer->full && (cbuffer->head == cbuffer->tail));
 }
 
-size_t circular_buffer_capacity(circular_buffer_t* cbuffer)
-{
-    return cbuffer->length;
-}
-
 int circular_buffer_put(circular_buffer_t* cbuffer, message_t message)
 {
     int result = -1;
-    if(!circular_buffer_full(cbuffer))
+    if(!cbuffer->full)
     {
         cbuffer->buffer[cbuffer->head] = message;
         result = cbuffer->head;

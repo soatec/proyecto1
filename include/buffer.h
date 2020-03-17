@@ -112,20 +112,4 @@ void circular_buffer_free(circular_buffer_t* cbuffer);
  */
 bool circular_buffer_empty(circular_buffer_t* cbuffer);
 
-/**
- * Is cbuffer full
- *
- * @param cbuffer
- * @return
- */
-bool circular_buffer_full(circular_buffer_t* cbuffer);
-
-/**
- * Length of cbuffer
- *
- * @param cbuffer
- * @return
- */
-size_t circular_buffer_capacity(circular_buffer_t* cbuffer);
-
 #endif //PROYECTO1_BUFFER_H
