@@ -43,6 +43,7 @@ Resive como parametros -b buffer_name -m exponential_mean_s
 
 ```
 
+
 ### Finalizador
 
 Resive como parametros -b buffer_name
