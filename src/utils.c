@@ -240,6 +240,49 @@ circular_buffer_t *shm_cbuffer_get(char *buffer_name, unsigned int size,
     return cbuffer;
 }
 
+int sys_state_destroy_semaphores(system_sh_state_t* sys_state)
+{
+  int ret;
+
+  ret = sem_destroy(&sys_state->mut_producer_count);
+  if (ret) {
+    fprintf(stderr, "Failed to destroy producer count mutex\n");
+    return ret;
+  }
+
+  ret = sem_destroy(&sys_state->mut_consumer_count);
+  if (ret) {
+    fprintf(stderr, "Failed to destroy consumer count mutex\n");
+    return ret;
+  }
+
+  ret = sem_destroy(&sys_state->sem_cbuffer_empty);
+  if (ret) {
+    fprintf(stderr, "Failed to destroy cbuffer empty semaphore\n");
+    return ret;
+  }
+
+  ret = sem_destroy(&sys_state->sem_cbuffer_message);
+  if (ret) {
+    fprintf(stderr, "Failed to destroy  cbuffer message semaphore\n");
+    return ret;
+  }
+
+  ret = sem_destroy(&sys_state->mut_cbuffer_write);
+  if (ret) {
+    fprintf(stderr, "Failed to destroy cbuffer write mutex\n");
+    return ret;
+  }
+
+  ret = sem_destroy(&sys_state->mut_cbuffer_read);
+  if (ret) {
+    fprintf(stderr, "Failed to destroy cbuffer read mutex\n");
+    return ret;
+  }
+
+  return ret;
+}
+
 int sys_state_unmap_close(system_sh_state_t* sys_state, char* buffer_name)
 {
     char* filename;
