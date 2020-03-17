@@ -52,8 +52,6 @@ Resive como parametros -b buffer_name
 
 ```
 
-
-
 ## Auttores
 
 - Daniel Alvarado Chou.
